@@ -67,9 +67,11 @@ const ROOM = Number(process.env.MIRROR_MB || 450) * 1e6;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // What no app reads (checked against Sports' and Play's parsers): the heavy
-// part of ESPN's answers. Each kind may keep only the top-level parts its
+// part of ESPN's answers. (A football game's `commentary` is read: Sports'
+// 過程, every shot, corner and foul; dropped, a game over showed its key
+// events alone.) Each kind may keep only the top-level parts its
 // parser reads.
-const DROP = new Set(['links', 'news', 'videos', 'article', 'articles', 'ticketsInfo', 'quicklinks', 'playerSwitcher', 'guid', 'alternateIds', 'geoBroadcasts', 'fantasy', 'commentary', 'headlines', '$ref', 'college', 'birthCountry', 'experience', 'lastUpdated', 'parent', 'contracts', 'draft']);
+const DROP = new Set(['links', 'news', 'videos', 'article', 'articles', 'ticketsInfo', 'quicklinks', 'playerSwitcher', 'guid', 'alternateIds', 'geoBroadcasts', 'fantasy', 'headlines', '$ref', 'college', 'birthCountry', 'experience', 'lastUpdated', 'parent', 'contracts', 'draft']);
 export function slim(x, keep = null) {
   if (Array.isArray(x)) return x.map(v => slim(v));
   if (!x || typeof x !== 'object') return x;
@@ -287,7 +289,9 @@ async function boxScores(key, l) {
     [...new Set(finished.get(l.espn) || [])].map(async id => {
       const url = `${SITE}/${l.espn}/summary?event=${id}`;
       const kept = await published(url);
-      if (kept && over(kept.header?.competitions?.[0] ? { status: kept.header.competitions[0].status } : null)) {
+      // (A football game kept from before its commentary was: read again, once.)
+      const whole = !/^soccer\//.test(l.espn) || Boolean(kept?.commentary);
+      if (kept && whole && over(kept.header?.competitions?.[0] ? { status: kept.header.competitions[0].status } : null)) {
         stats.carried = (stats.carried || 0) + 1;
         return put(k, url, '', LAST, kept);
       }
